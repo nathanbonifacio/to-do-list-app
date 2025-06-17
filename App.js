@@ -1,250 +1,3 @@
-/*
-import React, { useEffect, useState } from "react";
-import {
-  SafeAreaView,
-  View,
-  Text,
-  TouchableOpacity,
-  TextInput,
-  FlatList,
-  Keyboard,
-  KeyboardAvoidingView,
-  Image,
-  Platform,
-  StyleSheet,
-} from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import Checkbox from "expo-checkbox";
-import { Ionicons } from "@expo/vector-icons";
-
-export default function Index() {
-  const [todos, setTodos] = useState([]);
-  const [todoText, setTodoText] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [oldTodos, setOldTodos] = useState([]);
-
-  useEffect(() => {
-    const getTodos = async () => {
-      try {
-        const todos = await AsyncStorage.getItem("my-todo");
-        if (todos !== null) {
-          setTodos(JSON.parse(todos));
-          setOldTodos(JSON.parse(todos));
-        }
-      } catch (error) {
-        console.log(error);
-      }
-    };
-    getTodos();
-  }, []);
-
-  const addTodo = async () => {
-    try {
-      const newTodo = {
-        id: Math.random(),
-        title: todoText,
-        isDone: false,
-      };
-      const updatedTodos = [...todos, newTodo];
-      setTodos(updatedTodos);
-      setOldTodos(updatedTodos);
-      await AsyncStorage.setItem("my-todo", JSON.stringify(updatedTodos));
-      setTodoText("");
-      Keyboard.dismiss();
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
-  const deleteTodo = async (id) => {
-    try {
-      const newTodos = todos.filter((todo) => todo.id !== id);
-      await AsyncStorage.setItem("my-todo", JSON.stringify(newTodos));
-      setTodos(newTodos);
-      setOldTodos(newTodos);
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
-  const handleDone = async (id) => {
-    try {
-      const newTodos = todos.map((todo) => {
-        if (todo.id === id) {
-          todo.isDone = !todo.isDone;
-        }
-        return todo;
-      });
-      await AsyncStorage.setItem("my-todo", JSON.stringify(newTodos));
-      setTodos(newTodos);
-      setOldTodos(newTodos);
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
-  const onSearch = (query) => {
-    if (query === "") {
-      setTodos(oldTodos);
-    } else {
-      const filteredTodos = oldTodos.filter((todo) =>
-        todo.title.toLowerCase().includes(query.toLowerCase())
-      );
-      setTodos(filteredTodos);
-    }
-  };
-
-  useEffect(() => {
-    onSearch(searchQuery);
-  }, [searchQuery]);
-
-  return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.searchBar}>
-        <Ionicons name="search" size={24} color={"#333"} />
-        <TextInput
-          placeholder="Pesquisar"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          style={styles.searchInput}
-          clearButtonMode="always"
-        />
-      </View>
-
-      <FlatList
-        data={[...todos].reverse()}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => (
-          <ToDoItem
-            todo={item}
-            deleteTodo={deleteTodo}
-            handleDone={handleDone}
-          />
-        )}
-      />
-
-      <KeyboardAvoidingView
-        style={styles.footer}
-        behavior="padding"
-        keyboardVerticalOffset={10}
-      >
-        <TextInput
-          placeholder="Adicionar Tarefa"
-          value={todoText}
-          onChangeText={setTodoText}
-          style={styles.newTodoInput}
-          autoCorrect={false}
-        />
-        <TouchableOpacity style={styles.addButton} onPress={addTodo}>
-          <Ionicons name="add" size={34} color={"#fff"} />
-        </TouchableOpacity>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
-  );
-}
-
-const ToDoItem = ({ todo, deleteTodo, handleDone }) => (
-  <View style={styles.todoContainer}>
-    <View style={styles.todoInfoContainer}>
-      <Checkbox
-        value={todo.isDone}
-        onValueChange={() => handleDone(todo.id)}
-        color={todo.isDone ? "#4630EB" : undefined}
-      />
-      <Text
-        style={[
-          styles.todoText,
-          todo.isDone && { textDecorationLine: "line-through" },
-        ]}
-      >
-        {todo.title}
-      </Text>
-    </View>
-    <TouchableOpacity
-      onPress={() => {
-        deleteTodo(todo.id);
-        alert("Deleted " + todo.id);
-      }}
-    >
-      <Ionicons name="trash" size={24} color={"red"} />
-    </TouchableOpacity>
-  </View>
-);
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingHorizontal: 20,
-    // backgroundColor: "#f5f5f5",
-    backgroundColor: "#FFFBEA",
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
-    paddingTop: 50,
-  },
-  searchBar: {
-    flexDirection: "row",
-    backgroundColor: "#fff",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: Platform.OS === "ios" ? 16 : 8,
-    borderRadius: 10,
-    gap: 10,
-    marginBottom: 20,
-    marginTop: 50,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    color: "#333",
-  },
-  todoContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    backgroundColor: "#fff",
-    padding: 16,
-    borderRadius: 10,
-    marginBottom: 20,
-  },
-  todoInfoContainer: {
-    flexDirection: "row",
-    gap: 10,
-    alignItems: "center",
-  },
-  todoText: {
-    fontSize: 16,
-    color: "#333",
-  },
-  footer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    bottom: 20,
-  },
-  newTodoInput: {
-    flex: 1,
-    backgroundColor: "#fff",
-    padding: 16,
-    margin: 16,
-    borderRadius: 10,
-    fontSize: 16,
-    color: "#333",
-  },
-  addButton: {
-    // backgroundColor: "#4630EB",
-    backgroundColor: "#10B981",
-    padding: 8,
-    borderRadius: 30,
-    marginLeft: 20,
-  },
-});
-*/
-
-//======================DIVISAAAAAAO==========================
-
 import React, { useEffect, useState } from "react";
 import {
   SafeAreaView,
@@ -256,7 +9,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Keyboard,
-  Platform,
   StyleSheet,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -361,8 +113,9 @@ export default function Index() {
           style={styles.searchInput}
         />
         <RNPickerSelect
-          placeholder={{ label: "Filtro", value: null }}
+          value={filter}
           onValueChange={setFilter}
+          placeholder={{ label: "Filtro", value: "all" }}
           items={[
             { label: "Todos", value: "all" },
             { label: "Concluídos", value: "done" },
@@ -455,6 +208,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
     marginBottom: 10,
+    marginTop: 30,
   },
   searchInput: {
     flex: 1,
