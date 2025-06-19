@@ -7,26 +7,27 @@ import {
   TouchableOpacity,
   FlatList,
   Alert,
-  KeyboardAvoidingView,
   Keyboard,
   StyleSheet,
+  Modal,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import uuid from "react-native-uuid";
-import RNPickerSelect from "react-native-picker-select";
 import Checkbox from "expo-checkbox";
 import { Ionicons } from "@expo/vector-icons";
 
 export default function Index() {
   const [todos, setTodos] = useState([]);
   const [todoText, setTodoText] = useState("");
+  const [tagText, setTagText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [category, setCategory] = useState(null);
   const [dueDate, setDueDate] = useState(null);
   const [editingTodo, setEditingTodo] = useState(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
 
   useEffect(() => {
     const getTodos = async () => {
@@ -50,6 +51,7 @@ export default function Index() {
       isDone: false,
       category,
       dueDate,
+      tag: tagText,
       createdAt: new Date().toISOString(),
     };
 
@@ -62,9 +64,11 @@ export default function Index() {
 
     await saveTodos(updatedTodos);
     setTodoText("");
+    setTagText("");
     setCategory(null);
     setDueDate(null);
     setEditingTodo(null);
+    setModalVisible(false);
     Keyboard.dismiss();
   };
 
@@ -91,6 +95,14 @@ export default function Index() {
     await saveTodos(updated);
   };
 
+  const openEditModal = (item) => {
+    setEditingTodo(item);
+    setTodoText(item.title);
+    setDueDate(item.dueDate);
+    setTagText(item.tag || "");
+    setModalVisible(true);
+  };
+
   const filteredTodos = todos
     .filter((t) =>
       filter === "done"
@@ -100,7 +112,9 @@ export default function Index() {
         : true
     )
     .filter((t) =>
-      t.title.toLowerCase().includes(searchQuery.toLowerCase())
+      t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (t.tag && t.tag.toLowerCase().includes(searchQuery.toLowerCase())) || 
+      (t.dueDate && new Date(t.dueDate).toLocaleDateString().includes(searchQuery))
     );
 
   return (
@@ -111,16 +125,6 @@ export default function Index() {
           value={searchQuery}
           onChangeText={setSearchQuery}
           style={styles.searchInput}
-        />
-        <RNPickerSelect
-          value={filter}
-          onValueChange={setFilter}
-          placeholder={{ label: "Filtro", value: "all" }}
-          items={[
-            { label: "Todos", value: "all" },
-            { label: "Concluídos", value: "done" },
-            { label: "Pendentes", value: "pending" },
-          ]}
         />
       </View>
 
@@ -142,10 +146,19 @@ export default function Index() {
                     até {new Date(item.dueDate).toLocaleDateString()}
                   </Text>
                 )}
+                {item.tag && (
+                  <View style={styles.tagContainer}>
+                    {item.tag.split(',').map((tag, index) => (
+                      <View key={index} style={[styles.tagView]}>
+                        <Text style={styles.todoTag}>{tag.trim()}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
               </View>
             </View>
             <View style={styles.todoActions}>
-              <TouchableOpacity onPress={() => setEditingTodo(item) || setTodoText(item.title)}>
+              <TouchableOpacity onPress={() => openEditModal(item)}>
                 <Ionicons name="pencil" size={20} color="blue" />
               </TouchableOpacity>
               <TouchableOpacity onPress={() => deleteTodo(item.id)}>
@@ -156,44 +169,53 @@ export default function Index() {
         )}
       />
 
-      <KeyboardAvoidingView behavior="padding" keyboardVerticalOffset={10}>
-        <View style={styles.addRow}>
+      <TouchableOpacity style={styles.addTaskButton} onPress={() => setModalVisible(true)}>
+        <Text style={styles.addTaskButtonText}>Adicionar Tarefa</Text>
+      </TouchableOpacity>
+
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalView}>
           <TextInput
-            placeholder="Adicionar tarefa"
+            placeholder="Digite a tarefa"
             value={todoText}
             onChangeText={setTodoText}
-            style={styles.addInput}
+            style={styles.modalInput}
           />
-          <TouchableOpacity style={styles.addButton} onPress={addOrEditTodo}>
-            <Ionicons name="add" size={28} color="#fff" />
-          </TouchableOpacity>
-        </View>
-        <View style={styles.optionRow}>
           <TouchableOpacity onPress={() => setShowDatePicker(true)}>
             <Text style={styles.optionText}>📅 Definir data</Text>
           </TouchableOpacity>
-          <RNPickerSelect
-            placeholder={{ label: "Categoria", value: null }}
-            onValueChange={setCategory}
-            items={[
-              { label: "Trabalho", value: "trabalho" },
-              { label: "Estudos", value: "estudos" },
-              { label: "Pessoal", value: "pessoal" },
-            ]}
+          {showDatePicker && (
+            <DateTimePicker
+              value={dueDate ? new Date(dueDate) : new Date()}
+              mode="date"
+              display="default"
+              onChange={(_, date) => {
+                setShowDatePicker(false);
+                if (date) setDueDate(date.toISOString());
+              }}
+            />
+          )}
+          <TextInput
+            placeholder="Digite a tag (opcional)"
+            value={tagText}
+            onChangeText={setTagText}
+            style={styles.modalInput}
           />
+          <View style={styles.modalButtons}>
+            <TouchableOpacity style={styles.modalButton} onPress={addOrEditTodo}>
+              <Text style={styles.modalButtonText}>{editingTodo ? "Salvar" : "Adicionar"}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalButton} onPress={() => setModalVisible(false)}>
+              <Text style={styles.modalButtonText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-        {showDatePicker && (
-          <DateTimePicker
-            value={dueDate ? new Date(dueDate) : new Date()}
-            mode="date"
-            display="default"
-            onChange={(_, date) => {
-              setShowDatePicker(false);
-              if (date) setDueDate(date.toISOString());
-            }}
-          />
-        )}
-      </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -240,34 +262,71 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#999",
   },
+  tagContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 5,
+  },
+  tagView: {
+    borderRadius: 20,
+    backgroundColor: '#C0C9EE',
+    padding: 5,
+    marginRight: 5,
+  },
+  todoTag: {
+    fontSize: 12,
+    color: "black",
+  },
   todoActions: {
     flexDirection: "row",
     gap: 10,
   },
-  addRow: {
-    flexDirection: "row",
-    alignItems: "center",
+  addTaskButton: {
+    backgroundColor: "#10B981",
+    padding: 12,
+    borderRadius: 30,
     marginTop: 10,
+    marginBottom: 40,
+    alignItems: "center",
   },
-  addInput: {
+  addTaskButtonText: {
+    color: "#fff",
+    fontSize: 16,
+  },
+  modalView: {
     flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    padding: 20,
+  },
+  modalInput: {
+    width: "80%",
     backgroundColor: "#fff",
     padding: 12,
     borderRadius: 10,
     fontSize: 16,
+    marginBottom: 10,
   },
-  addButton: {
+  modalButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "80%",
+  },
+  modalButton: {
     backgroundColor: "#10B981",
     padding: 12,
-    borderRadius: 30,
-    marginLeft: 10,
-  },
-  optionRow: {
-    flexDirection: "row",
+    borderRadius: 10,
     marginTop: 10,
-    gap: 10,
+    flex: 1,
+    marginHorizontal: 5,
+    alignItems: "center",
+  },
+  modalButtonText: {
+    color: "#fff",
   },
   optionText: {
     color: "#333",
+    marginBottom: 10,
   },
 });
