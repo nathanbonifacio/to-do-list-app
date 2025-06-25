@@ -31,7 +31,7 @@ export default function Index() {
 
   useEffect(() => {
     const getTodos = async () => {
-      const data = await AsyncStorage.getItem("my-todo");
+      const data = await AsyncStorage.getItem("to-do");
       if (data) setTodos(JSON.parse(data));
     };
     getTodos();
@@ -39,7 +39,7 @@ export default function Index() {
 
   const saveTodos = async (newTodos) => {
     setTodos(newTodos);
-    await AsyncStorage.setItem("my-todo", JSON.stringify(newTodos));
+    await AsyncStorage.setItem("to-do", JSON.stringify(newTodos));
   };
 
   const addOrEditTodo = async () => {
